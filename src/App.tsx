@@ -271,8 +271,8 @@ function App() {
         const caught: FoodItem[] = [];
 
         updated.forEach(food => {
-          const basketLeft = basketX - 15;
-          const basketRight = basketX + 15;
+          const basketLeft = basketX - 5;
+          const basketRight = basketX + 5;
           const basketTop = 85;
           const basketBottom = 95;
 
