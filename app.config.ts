@@ -1,0 +1,15 @@
+import { defineConfig } from '@tanstack/start/config';
+
+export default defineConfig({
+  server: {
+    preset: 'node-server',
+  },
+  vite: {
+    resolve: {
+      alias: {
+        '@': '/',
+        '~': '/app',
+      },
+    },
+  },
+});
