@@ -5,22 +5,22 @@
 }
 
 @font-face {
-  font-family: 'Noto Naskh Arabic';
-  src: url('/fonts/alfont_com_NotoNaskhArabic-Bold.ttf') format('truetype');
-  font-weight: bold;
+  font-family: 'Noto Sans Arabic';
+  src: url('/fonts/alfont_com_KAHandNaskhV2-Regular.ttf') format('truetype');
+  font-weight: normal;
 }
 
 @font-face {
-  font-family: 'Noto Naskh Arabic';
-  src: url('/fonts/alfont_com_AlFont_com_NotoNaskhArabic-Regular.ttf') format('truetype');
-  font-weight: normal;
+  font-family: 'Noto Sans Arabic';
+  src: url('/fonts/alfont_com_KAHandNaskhV2-Regular.ttf') format('truetype');
+  font-weight: bold;
 }
 
 html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-family: 'Noto Naskh Arabic', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: linear-gradient(180deg, #0a0e27 0%, #1a1f4b 30%, #2d1b4e 70%, #1a0f2e 100%);
 }
 
@@ -249,7 +249,7 @@ html, body {
   color: #c9b1ff;
   margin-bottom: 1.5rem;
   text-shadow: 0 0 10px rgba(201, 177, 255, 0.5);
-  font-family: 'Noto Naskh Arabic', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .emoji, .start-icon {
