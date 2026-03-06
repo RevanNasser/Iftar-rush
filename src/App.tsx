@@ -27,8 +27,51 @@ interface Particle {
   life: number;
 }
 
+type PowerUpType = 'slowMotion' | 'bonusPoints' | 'magnet';
+
+interface PowerUp {
+  id: number;
+  x: number;
+  y: number;
+  speed: number;
+  type: PowerUpType;
+  svg: string;
+}
+
+interface PowerUpDefinition {
+  type: PowerUpType;
+  svg: string;
+  name: string;
+  description: string;
+  duration?: number;
+}
+
+const powerUpDefinitions: PowerUpDefinition[] = [
+  {
+    type: 'slowMotion',
+    svg: '/power-ups/ruby.svg',
+    name: 'هدوء ما قبل الإفطار',
+    description: 'لحظة هدوء قبل الإفطار… الأكلات تسقط ببطء لمدة 5 ثواني.',
+    duration: 5000,
+  },
+  {
+    type: 'bonusPoints',
+    svg: '/power-ups/amethyst.svg',
+    name: 'جوهرة الكرم',
+    description: 'كرم رمضان! تحصل على 10 نقاط إضافية مباشرة.',
+  },
+  {
+    type: 'magnet',
+    svg: '/power-ups/RPGICON_0002_Layer-26.svg',
+    name: 'سفرة عامرة',
+    description: 'سفرة عامرة بالأكلات! الطعام ينجذب للسلة لمدة 8 ثواني.',
+    duration: 8000,
+  },
+];
+
 const GAME_DURATION = 30;
 const SPAWN_RATE = 800;
+const POWER_UP_SPAWN_RATE = 10000;
 
 const foodColors = ['#F9E476', '#FFE066', '#FFD700', '#FFF8DC', '#F5DEB3', '#FFFACD'];
 
@@ -142,7 +185,7 @@ function RamadanBackground() {
 }
 
 function App() {
-  const [gameState, setGameState] = useState<'start' | 'playing' | 'ended'>('start');
+  const [gameState, setGameState] = useState<'start' | 'playing' | 'paused' | 'ended'>('start');
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
   const [basketX, setBasketX] = useState(50);
@@ -151,9 +194,16 @@ function App() {
   const [particles, setParticles] = useState<Particle[]>([]);
   const [showResult, setShowResult] = useState(false);
   const [highScore, setHighScore] = useState(0);
+  const [powerUps, setPowerUps] = useState<PowerUp[]>([]);
+  const [activePowerUp, setActivePowerUp] = useState<PowerUpDefinition | null>(null);
+  const [showPowerUpModal, setShowPowerUpModal] = useState(false);
+  const [pendingPowerUp, setPendingPowerUp] = useState<PowerUpDefinition | null>(null);
+  const [shownPowerUps, setShownPowerUps] = useState<PowerUpType[]>([]);
   const gameAreaRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>();
   const lastSpawnRef = useRef(0);
+  const lastPowerUpSpawnRef = useRef(0);
+  const powerUpTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -186,6 +236,8 @@ function App() {
     setCollectedFood([]);
     setParticles([]);
     setShowResult(false);
+    setShownPowerUps([]);
+    setActivePowerUp(null);
     lastSpawnRef.current = 0;
   };
 
@@ -260,11 +312,41 @@ function App() {
         lastSpawnRef.current = timestamp;
       }
 
+      if (timestamp - lastPowerUpSpawnRef.current > POWER_UP_SPAWN_RATE) {
+        const randomPowerUp = powerUpDefinitions[Math.floor(Math.random() * powerUpDefinitions.length)];
+        const newPowerUp: PowerUp = {
+          id: Date.now() + Math.random(),
+          x: Math.random() * 80 + 10,
+          y: -5,
+          speed: Math.random() * 0.3 + 0.2,
+          type: randomPowerUp.type,
+          svg: randomPowerUp.svg,
+        };
+        setPowerUps(prev => [...prev, newPowerUp]);
+        lastPowerUpSpawnRef.current = timestamp;
+      }
+
       setFoodItems(prev => {
-        const updated = prev.map(food => ({
-          ...food,
-          y: food.y + food.speed,
-        }));
+        const updated = prev.map(food => {
+          let newY = food.y + food.speed;
+          let newX = food.x;
+
+          if (activePowerUp?.type === 'slowMotion') {
+            newY = food.y + (food.speed * 0.3);
+          }
+
+          if (activePowerUp?.type === 'magnet') {
+            const dx = basketX - food.x;
+            newX = food.x + (dx * 0.05);
+            newY = food.y + (food.speed * 0.8);
+          }
+
+          return {
+            ...food,
+            y: newY,
+            x: newX,
+          };
+        });
 
         const remaining: FoodItem[] = [];
         let scoreIncrease = 0;
@@ -305,6 +387,60 @@ function App() {
             });
             return updated.sort((a, b) => b.count - a.count);
           });
+        }
+
+        return remaining;
+      });
+
+      setPowerUps(prev => {
+        const updated = prev.map(pu => ({
+          ...pu,
+          y: pu.y + pu.speed,
+        }));
+
+        const remaining: PowerUp[] = [];
+        let caughtPowerUp: PowerUp | null = null;
+
+        updated.forEach(pu => {
+          const basketLeft = basketX - 5;
+          const basketRight = basketX + 5;
+          const basketTop = 85;
+          const basketBottom = 95;
+
+          if (
+            pu.x >= basketLeft &&
+            pu.x <= basketRight &&
+            pu.y >= basketTop &&
+            pu.y <= basketBottom
+          ) {
+            caughtPowerUp = pu;
+          } else if (pu.y < 105) {
+            remaining.push(pu);
+          }
+        });
+
+        if (caughtPowerUp) {
+          const powerUpDef = powerUpDefinitions.find(p => p.type === caughtPowerUp.type);
+          if (powerUpDef) {
+            const powerUpType = caughtPowerUp.type;
+            const alreadyShown = shownPowerUps.includes(powerUpType);
+            
+            if (!alreadyShown) {
+              setPendingPowerUp(powerUpDef);
+              setShowPowerUpModal(true);
+              setGameState('paused');
+              setShownPowerUps(prev => [...prev, powerUpType]);
+            } else {
+              if (powerUpDef.type === 'bonusPoints') {
+                setScore(s => s + 10);
+              } else if (powerUpDef.duration) {
+                setActivePowerUp(powerUpDef);
+                powerUpTimerRef.current = window.setTimeout(() => {
+                  setActivePowerUp(null);
+                }, powerUpDef.duration);
+              }
+            }
+          }
         }
 
         return remaining;
@@ -376,6 +512,12 @@ function App() {
             <span className="highscore-label">الأفضل</span>
             <span className="highscore-value">{highScore}</span>
           </div>
+          {activePowerUp && (
+            <div className="active-powerup">
+              <img src={activePowerUp.svg} alt={activePowerUp.name} />
+              <span>{activePowerUp.name}</span>
+            </div>
+          )}
         </div>
 
         <div ref={gameAreaRef} className="game-area">
@@ -389,6 +531,19 @@ function App() {
               }}
             >
               <img src={food.svg} alt={food.name} className="food-icon" />
+            </div>
+          ))}
+
+          {powerUps.map(pu => (
+            <div
+              key={pu.id}
+              className="falling-powerup"
+              style={{
+                left: `${pu.x}%`,
+                top: `${pu.y}%`,
+              }}
+            >
+              <img src={pu.svg} alt="Power-up" className="powerup-icon" />
             </div>
           ))}
 
@@ -415,6 +570,34 @@ function App() {
             <img src="/basket.png" alt="Basket" className="basket-image" />
           </div>
         </div>
+
+        {showPowerUpModal && pendingPowerUp && (
+          <div className="modal-overlay">
+            <div className="powerup-modal">
+              <div className="modal-content">
+                <div className="powerup-icon">
+                  <img src={pendingPowerUp.svg} alt={pendingPowerUp.name} />
+                </div>
+                <h2 className="powerup-title">{pendingPowerUp.name} ✨</h2>
+                <p className="powerup-description">{pendingPowerUp.description}</p>
+                <button className="powerup-continue-button" onClick={() => {
+                  setActivePowerUp(pendingPowerUp);
+                  setShowPowerUpModal(false);
+                  setGameState('playing');
+                  if (pendingPowerUp.type === 'bonusPoints') {
+                    setScore(s => s + 10);
+                  } else if (pendingPowerUp.duration) {
+                    powerUpTimerRef.current = window.setTimeout(() => {
+                      setActivePowerUp(null);
+                    }, pendingPowerUp.duration);
+                  }
+                }}>
+                  فهمت 
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {showResult && (
           <div className="modal-overlay">
